@@ -1,0 +1,49 @@
+= Wildcard Env Parsing
+
+Library for parsing groups of environment variables with wildcard matching on
+names.
+
+Say, for example, that you have want to match groups of environment variables
+that have a pattern to their names:
+[source, bash]
+----
+DB_<WILDCARD>_ADDRESS=
+DB_<WILDCARD>_PORT=
+----
+For this example, say that we want to enable an arbitrary number of database
+connections based on the groups of variables present in the process environment.
+In this case, manually parsing or hard-coding variable names would not be an
+option.
+
+This library allows you to match and group these environment variables by
+configured patterns, prefixes, suffixes, or combinations.
+
+So (using the above patterns) we can parse an environment like the following:
+[source, bash]
+----
+DB_APPLES_ADDRESS=some.host
+DB_APPLES_PORT=1521
+DB_GRAPES_ADDRESS=other.host
+DB_GRAPES_PORT=1234
+DB_PEARS_ADDRESS=another.host
+DB_PEARS_PORT=4321
+----
+
+[source, go]
+----
+result := wenv.NewEnvironmentMatcher().
+  AddGroup(wenv.NewMatchGroup("db").
+    AddMatcher(wenv.NewWrappedMatcher("address", "DB_", "_ADDRESS"), true).
+    AddMatcher(wenv.NewWrappedMatcher("port", "DB_", "_PORT"), true),
+    true
+  ).
+  ParseEnv(wenv.SplitEnvironment(os.Environ()))
+
+dbResults := result.Get("db")
+
+for i := 0; i < dbResults.Size(); i++ {
+  fmt.Println(dbResults.Get(i).FirstKey())       // APPLES|GRAPES|PEARS
+  fmt.Println(dbResults.Get(i).Value("address")) // some.host|other.host|another.host
+  fmt.Println(dbResults.Get(i).Value("port"))    // 1521|1234|4321
+}
+----
